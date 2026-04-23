@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>請求書作成ツール</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -941,6 +942,8 @@
 <!-- トースト -->
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
   // ========== ストレージキー ==========
   const DRAFT_KEY       = 'invoice_draft_v1';
@@ -1586,71 +1589,61 @@
   }
 
   // ========== PDF生成 ==========
-  function downloadPDF() {
+  async function downloadPDF() {
     const d = collectData();
-    const content = document.getElementById('previewContent').innerHTML;
+    showToast('PDF生成中…');
+    try {
+      const source = document.getElementById('previewContent');
+      const clone = source.cloneNode(true);
+      Object.assign(clone.style, {
+        position: 'fixed', left: '-9999px', top: '0',
+        width: '680px', background: 'white', padding: '32px',
+        maxHeight: 'none', overflow: 'visible',
+        borderRadius: '0', border: 'none', boxShadow: 'none'
+      });
+      document.body.appendChild(clone);
 
-    // A4印刷可能域: 180mm × 267mm（15mmマージン）= 680px × 1009px @ 96dpi
-    const css = `
-      * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      body {
-        font-family: 'Hiragino Sans', 'Yu Gothic', 'Helvetica Neue', Arial, sans-serif;
-        color: #222; background: white;
-        width: 680px;    /* A4印刷可能幅（180mm @ 96dpi）*/
-        margin: 0 auto;  /* zoom縮小後も左右中央揃え */
-      }
-      table { border-collapse: collapse; }
-      @media print { @page { margin: 15mm; size: A4 portrait; } }
-    `;
+      const canvas = await html2canvas(clone, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        logging: false, width: clone.offsetWidth, height: clone.offsetHeight
+      });
+      document.body.removeChild(clone);
 
-    const win = window.open('', '_blank', 'width=720,height=900');
-    if (!win) {
-      showToast('ポップアップがブロックされました。ブラウザの設定で許可してください。', 'error');
-      return;
-    }
-    win.document.write(`<!DOCTYPE html>
-<html lang="ja"><head><meta charset="UTF-8">
-<title>請求書_${d.invoiceNumber || 'draft'}</title>
-<style>${css}</style></head>
-<body><div id="inv">${content}</div>
-<script>
-(function() {
-  var PW = 680, PH = Math.round(267 * 96 / 25.4); // 680 × 1009px
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const margin = 15;
+      const pageW = 210, pageH = 297;
+      const contentW = pageW - margin * 2;
+      const imgW = canvas.width, imgH = canvas.height;
+      const ratio = contentW / imgW;
+      const renderedH = imgH * ratio;
+      const pageContentH = pageH - margin * 2;
+      const imgData = canvas.toDataURL('image/png');
 
-  function applyScale() {
-    var bw = document.body.scrollWidth;
-    var bh = document.body.scrollHeight;
-    var scale = Math.min(PW / bw, PH / bh, 1);
-    if (scale < 1) {
-      scale = +scale.toFixed(4);
-      if ('zoom' in document.body.style) {
-        // bodyにzoomを適用: documentの高さも比例縮小され1ページに収まる
-        // margin:0 auto により縮小後も中央揃えされる
-        document.body.style.zoom = scale;
+      if (renderedH <= pageContentH) {
+        pdf.addImage(imgData, 'PNG', margin, margin, contentW, renderedH);
       } else {
-        // Firefox fallback: transform で縮小 + body高さを明示
-        var inv = document.getElementById('inv');
-        inv.style.transformOrigin = 'top left';
-        inv.style.transform = 'scale(' + scale + ')';
-        document.body.style.height = Math.round(bh * scale) + 'px';
-        document.body.style.overflow = 'hidden';
+        let yPos = 0;
+        while (yPos < renderedH) {
+          if (yPos > 0) pdf.addPage();
+          const sliceH = Math.min(pageContentH, renderedH - yPos);
+          const srcY = Math.round(yPos / ratio * 2);
+          const srcH = Math.round(sliceH / ratio * 2);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = srcH;
+          sliceCanvas.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+          pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentW, sliceH);
+          yPos += pageContentH;
+        }
       }
-    }
-    setTimeout(function() { window.print(); }, 500);
-  }
 
-  window.onload = function() {
-    // フォント読み込み完了後に計測することで scrollHeight の過小評価を防ぐ
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function() { setTimeout(applyScale, 50); });
-    } else {
-      setTimeout(applyScale, 200);
+      pdf.save(`請求書_${d.invoiceNumber || 'draft'}.pdf`);
+      showToast('✅ PDFをダウンロードしました。', 'success');
+    } catch(e) {
+      showToast('PDF生成に失敗しました: ' + e.message, 'error');
+      console.error('downloadPDF error:', e);
     }
-  };
-})();
-<\/script>
-</body></html>`);
-    win.document.close();
     saveToHistory();
   }
 
