@@ -725,7 +725,7 @@
         </div>
         <div class="field">
           <label>郵便番号</label>
-          <input type="text" id="fromZip" placeholder="例: 150-0044" maxlength="8" oninput="lookupZip('fromZip','fromAddress')">
+          <input type="text" id="fromZip" placeholder="例: 150-0044" maxlength="8" oninput="formatZip('fromZip','fromAddress')">
         </div>
         <div class="field">
           <label>住所</label>
@@ -759,7 +759,7 @@
         </div>
         <div class="field">
           <label>郵便番号</label>
-          <input type="text" id="toZip" placeholder="例: 530-0001" maxlength="8" oninput="lookupZip('toZip','toAddress')">
+          <input type="text" id="toZip" placeholder="例: 530-0001" maxlength="8" oninput="formatZip('toZip','toAddress')">
         </div>
         <div class="field">
           <label>住所</label>
@@ -1648,11 +1648,16 @@
   }
 
   // ========== 郵便番号→住所補完 ==========
-  async function lookupZip(zipId, addressId) {
-    const raw = document.getElementById(zipId).value.replace(/-/g, '');
-    if (!/^\d{7}$/.test(raw)) return;
+  function formatZip(zipId, addressId) {
+    const el = document.getElementById(zipId);
+    const digits = el.value.replace(/\D/g, '').slice(0, 7);
+    el.value = digits.length > 3 ? digits.slice(0, 3) + '-' + digits.slice(3) : digits;
+    if (digits.length === 7) lookupZip(digits, addressId);
+  }
+
+  async function lookupZip(digits, addressId) {
     try {
-      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`);
+      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
       const json = await res.json();
       if (!json.results) return;
       const r = json.results[0];
