@@ -142,6 +142,8 @@
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .from-to-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .items-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     .field { display: flex; flex-direction: column; gap: 6px; }
     .field.full { grid-column: 1 / -1; }
@@ -657,11 +659,57 @@
     .toast.error { background: #991b1b; }
 
     @media (max-width: 600px) {
+      /* レイアウト */
+      .container { margin: 12px auto; padding: 0 12px 80px; }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      .card { padding: 20px 16px; }
-      header { padding: 14px 16px; }
-      .header-right { gap: 8px; }
-      .history-item { flex-wrap: wrap; }
+      .from-to-grid { grid-template-columns: 1fr; gap: 0; }
+      .from-to-grid > .card:first-child { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 2px; }
+      .from-to-grid > .card:last-child { border-top-left-radius: 0; border-top-right-radius: 0; }
+
+      /* ヘッダー */
+      header { padding: 12px 14px; }
+      header h1 { font-size: 16px; }
+      .save-indicator { font-size: 11px; }
+      .btn-history { padding: 7px 12px; font-size: 12px; }
+
+      /* カード */
+      .card { padding: 18px 14px; }
+
+      /* 品目テーブル */
+      .items-table { min-width: 480px; }
+
+      /* 合計エリア */
+      .totals { display: block; }
+      .totals-box { width: 100%; }
+      .tax-rate-wrap { gap: 6px; }
+
+      /* アクションボタン */
+      .actions { flex-direction: column; gap: 10px; }
+      .actions .btn { width: 100%; padding: 15px; font-size: 15px; }
+
+      /* モーダル（下から出るシート型） */
+      .modal-overlay { align-items: flex-end; }
+      .modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: 92vh;
+        border-radius: 16px 16px 0 0;
+        padding: 20px 16px;
+        margin: 0;
+      }
+      .modal-actions { flex-direction: column-reverse; gap: 8px; margin-top: 16px; }
+      .modal-actions .btn { width: 100%; padding: 14px; text-align: center; }
+
+      /* 履歴アイテム */
+      .history-item { flex-wrap: wrap; gap: 10px; }
+      .history-item-actions { width: 100%; gap: 8px; }
+      .history-item-actions .btn-sm { flex: 1; text-align: center; padding: 10px; }
+
+      /* トースト */
+      .toast { bottom: 16px; right: 12px; left: 12px; max-width: none; font-size: 13px; }
+
+      /* 備考チップ */
+      .note-chip { font-size: 11px; padding: 5px 10px; }
     }
   </style>
 </head>
@@ -714,7 +762,7 @@
   </div>
 
   <!-- 発行者・請求先 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div class="from-to-grid">
 
     <div class="card">
       <h2>発行者（自社）</h2>
@@ -781,6 +829,7 @@
   <!-- 品目 -->
   <div class="card">
     <h2>品目明細</h2>
+    <div class="items-table-wrap">
     <table class="items-table">
       <thead>
         <tr>
@@ -794,6 +843,7 @@
       </thead>
       <tbody id="itemsBody"></tbody>
     </table>
+    </div>
     <button class="btn-add-item" onclick="addItem()">＋ 品目を追加</button>
 
     <div class="item-suggestions hidden" id="itemSuggestions"></div>
@@ -1356,7 +1406,7 @@
         <div class="history-empty">
           <div class="empty-icon">📭</div>
           <div>保存された請求書はありません。</div>
-          <div style="margin-top:8px;font-size:13px;color:#bbb">「プレビュー &amp; PDF出力」を開くと自動保存されます。</div>
+          <div style="margin-top:8px;font-size:13px;color:#bbb">PDFダウンロード時に自動保存されます。</div>
         </div>`;
       return;
     }
@@ -1417,7 +1467,6 @@
       }
       document.getElementById('previewContent').innerHTML = buildPreviewHTML(d);
       document.getElementById('previewModal').classList.add('active');
-      saveToHistory();
     } catch(e) {
       showToast('エラー: ' + e.message, 'error');
       console.error('openPreview error:', e);
