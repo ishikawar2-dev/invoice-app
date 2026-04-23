@@ -725,7 +725,7 @@
         </div>
         <div class="field">
           <label>郵便番号</label>
-          <input type="text" id="fromZip" placeholder="例: 150-0044" maxlength="8">
+          <input type="text" id="fromZip" placeholder="例: 150-0044" maxlength="8" oninput="lookupZip('fromZip','fromAddress')">
         </div>
         <div class="field">
           <label>住所</label>
@@ -759,7 +759,7 @@
         </div>
         <div class="field">
           <label>郵便番号</label>
-          <input type="text" id="toZip" placeholder="例: 530-0001" maxlength="8">
+          <input type="text" id="toZip" placeholder="例: 530-0001" maxlength="8" oninput="lookupZip('toZip','toAddress')">
         </div>
         <div class="field">
           <label>住所</label>
@@ -1645,6 +1645,21 @@
       console.error('downloadPDF error:', e);
     }
     saveToHistory();
+  }
+
+  // ========== 郵便番号→住所補完 ==========
+  async function lookupZip(zipId, addressId) {
+    const raw = document.getElementById(zipId).value.replace(/-/g, '');
+    if (!/^\d{7}$/.test(raw)) return;
+    try {
+      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`);
+      const json = await res.json();
+      if (!json.results) return;
+      const r = json.results[0];
+      const el = document.getElementById(addressId);
+      el.value = r.address1 + r.address2 + r.address3;
+      scheduleSave();
+    } catch(e) { /* 通信失敗時は何もしない */ }
   }
 
   // ========== 備考文言挿入 ==========
